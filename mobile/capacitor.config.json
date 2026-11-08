@@ -1,0 +1,1 @@
+{ "appId": "app.tambouille.mobile", "appName": "Tambouille", "webDir": "www", "server": { "androidScheme": "https" }, "android": { "allowMixedContent": false } }

@@ -1,0 +1,18 @@
+{
+  "name": "tambouille-desktop",
+  "productName": "Tambouille",
+  "version": "3.1.0",
+  "description": "Tambouille : recettes anti-gaspi à partir de votre frigo",
+  "author": "Maxence Trouillaud",
+  "main": "main.js",
+  "private": true,
+  "devDependencies": { "electron": "31.7.7", "electron-builder": "24.13.3" },
+  "build": {
+    "appId": "app.tambouille.desktop",
+    "productName": "Tambouille",
+    "files": ["main.js", "preload.js", "icon.png", "app/**"],
+    "directories": { "output": "dist" },
+    "win": { "target": "nsis", "icon": "icon.png" },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "Tambouille", "artifactName": "Tambouille-Setup-${version}.exe" }
+  }
+}

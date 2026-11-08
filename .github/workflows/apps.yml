@@ -1,0 +1,144 @@
+name: Applications (web, Android, Windows)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+env:
+  VERSION: '3.1.0'
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund && npm run build
+      - uses: actions/upload-artifact@v4
+        with: { name: public, path: public }
+
+  e2e-comptes:
+    needs: web
+    runs-on: ubuntu-latest
+    env:
+      T1_EMAIL: test-a@tambouille.test
+      T1_PW: Tamb-Test-2026a
+      T2_EMAIL: test-b@tambouille.test
+      T2_PW: Tamb-Test-2026b
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/download-artifact@v4
+        with: { name: public, path: public }
+      - run: npm install --no-audit --no-fund @supabase/supabase-js@2.45.4 playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: mkdir -p shots && (cd public && python3 -m http.server 8080 &) && sleep 2 && node tests/e2e-auth.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: captures-comptes, path: shots }
+
+  android:
+    needs: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: actions/download-artifact@v4
+        with: { name: public, path: mobile/www }
+      - name: Projet Android (Capacitor)
+        working-directory: mobile
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add android
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />#' android/app/src/main/AndroidManifest.xml
+          grep -q CAMERA android/app/src/main/AndroidManifest.xml
+          sed -i "s/versionName \"1.0\"/versionName \"${VERSION}\"/" android/app/build.gradle
+          npx capacitor-assets generate --android --iconBackgroundColor '#2F6B4F' --splashBackgroundColor '#F2F4EE' --splashBackgroundColorDark '#0E1310'
+          npx cap sync android
+      - name: Compilation APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon && cp app/build/outputs/apk/debug/app-debug.apk ../../Tambouille-${VERSION}.apk
+      - run: $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/aapt dump badging Tambouille-${VERSION}.apk | grep -E "package:|application-label:|uses-permission:.*CAMERA"
+      - uses: actions/upload-artifact@v4
+        with: { name: apk, path: 'Tambouille-*.apk' }
+
+  android-test:
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: apk }
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r Tambouille-*.apk
+            adb shell monkey -p app.tambouille.mobile -c android.intent.category.LAUNCHER 1
+            sleep 25
+            adb shell pidof app.tambouille.mobile
+            adb exec-out screencap -p > android-accueil.png
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: captures-android, path: '*.png' }
+
+  windows:
+    needs: web
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/download-artifact@v4
+        with: { name: public, path: desktop/app }
+      - name: Installateur Windows (NSIS)
+        working-directory: desktop
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win nsis --x64 --publish never
+      - name: Test d'installation et de lancement
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem desktop/dist/Tambouille-Setup-*.exe | Select-Object -First 1
+          Start-Process -FilePath $exe.FullName -ArgumentList '/S' -Wait
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Tambouille\Tambouille.exe'
+          if (!(Test-Path $app)) { throw "Application non installée" }
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Tambouille.lnk'
+          if (!(Test-Path $lnk)) { throw "Raccourci bureau absent" }
+          $p = Start-Process -FilePath $app -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { throw "L'application s'est fermée" }
+          Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\windows-accueil.png")
+          Stop-Process -Id $p.Id -Force
+          Write-Output "Installé : $app ; raccourci : $lnk"
+      - uses: actions/upload-artifact@v4
+        with: { name: exe, path: 'desktop/dist/Tambouille-Setup-*.exe' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: captures-windows, path: windows-accueil.png }
+
+  release:
+    needs: [android, android-test, windows, e2e-comptes]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: '{apk,exe}', merge-multiple: true }
+      - name: Publication GitHub Release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          ls -la
+          gh release view "v${VERSION}" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "v${VERSION}" -R "$GITHUB_REPOSITORY" --title "Tambouille ${VERSION}" --notes "Android : installer l’APK (autoriser les sources inconnues). Windows : lancer l’installateur. Données synchronisées avec votre compte Tambouille."
+          gh release upload "v${VERSION}" Tambouille-*.apk Tambouille-Setup-*.exe -R "$GITHUB_REPOSITORY" --clobber

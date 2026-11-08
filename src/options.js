@@ -434,7 +434,7 @@ VIEWS.nutrition = () => {
 };
 
 /* ----- Profil et paramètres (onglets, enregistrement automatique) ----- */
-const PTABS = [['culinaire', 'Profil culinaire'], ['apparence', 'Apparence'], ['notifs', 'Notifications'], ['ia', 'Intelligence artificielle'], ['cuisson', 'Mode cuisine'], ['foyer', 'Foyer'], ['stats', 'Statistiques'], ['outils', 'Outils'], ['donnees', 'Confidentialité']];
+const PTABS = [['compte', 'Compte'], ['culinaire', 'Profil culinaire'], ['apparence', 'Apparence'], ['notifs', 'Notifications'], ['ia', 'Intelligence artificielle'], ['cuisson', 'Mode cuisine'], ['foyer', 'Foyer'], ['stats', 'Statistiques'], ['outils', 'Outils'], ['donnees', 'Confidentialité'], ['appli', 'Installer']];
 VIEWS.profil = () => {
   const p = S.prefs, T = UI.ptab;
   let body = '';
@@ -482,6 +482,8 @@ VIEWS.profil = () => {
       ${pselect('cookFont', 'Taille du texte des étapes', [['s', 'Petite'], ['m', 'Normale'], ['l', 'Grande'], ['xl', 'Très grande']], p.cookFont)}
       ${chk('cookAutoRead', 'Lire chaque étape à voix haute automatiquement', p.cookAutoRead)}</div>
       <p class="fine">En cuisine : minuteurs multiples, mains libres, détails pas à pas (débutant), vue condensée de toutes les étapes, « Je suis bloqué », autre méthode, passer une étape.</p></section>`;
+  if (T === 'compte') body = accountView();
+  if (T === 'appli') body = installView();
   if (T === 'foyer') body = foyerCard();
   if (T === 'stats') { const st = statsData(); body = `<section class="card"><h2>${ic('trophy')}Statistiques et badges</h2>
       <div class="stats four"><div><b>${S.hist.length}</b><span>recettes cuisinées</span></div><div><b>${S.stats.savedN}</b><span>aliments sauvés</span></div><div><b>${euro(S.stats.savedEur)}</b><span>économisés (estim.)</span></div><div><b>${euro(S.stats.wastedEur)}</b><span>jetés (estim.)</span></div></div>
@@ -510,7 +512,7 @@ VIEWS.profil = () => {
 function foyerCard() {
   const members = Object.keys(UI.members);
   return `<section class="card" id="sec-foyer"><h2>${ic('users')}Foyer</h2>
-  ${!CL.perso ? `<p class="muted-t">Le foyer partagé nécessite d’ouvrir Tambouille sur claude.ai en étant connecté.</p>` : CL.foyerOn ? `<p>Inventaire, courses, planning, recettes et historique sont partagés. Les allergies de chacun sont exclues des suggestions.</p>
+  ${!IN_CLAUDE ? `<p class="muted-t">Le foyer partagé (inventaire et courses communs) est disponible dans la version Claude de Tambouille. Ici, chaque compte a ses propres données.</p>` : !CL.perso ? `<p class="muted-t">Le foyer partagé nécessite d’ouvrir Tambouille sur claude.ai en étant connecté.</p>` : CL.foyerOn ? `<p>Inventaire, courses, planning, recettes et historique sont partagés. Les allergies de chacun sont exclues des suggestions.</p>
     <ul class="members">${members.map(id => `<li>${ic('user')}<b>${esc(UI.names[id] || (id === CL.uid ? 'Vous' : 'Membre'))}</b>${id === CL.uid ? '<em>vous</em>' : ''}<span>${(UI.members[id].allergies || []).map(a => ALLERGENS[a]).join(', ') || 'aucune allergie'}</span></li>`).join('')}</ul>
     <p class="note">${ic('info')}Pour inviter quelqu’un : menu Partager de la page, droit « peut interagir ». Il touche ensuite « Rejoindre le foyer ».</p><button class="btn ghost danger" data-act="leaveFoyer">Quitter le foyer</button>`
     : `<p>Partagez inventaire, courses et planning avec les personnes qui ont accès à cette appli. Favoris, nutrition et paramètres restent privés.</p><button class="btn accent" data-act="joinFoyer">${ic('users')}Rejoindre ou créer le foyer</button>`}</section>`;
@@ -543,10 +545,10 @@ Object.assign(ACT, {
   ntab: b => { UI.ntab = b.dataset.v; render(); }, nGoto: b => { UI.nutriDay = b.dataset.d; UI.ntab = 'jour'; render(); },
   ptab: b => { UI.ptab = b.dataset.v; render(); window.scrollTo(0, 0); },
   browserNotif: async () => { try { if (!('Notification' in window)) throw 0; const r = await Notification.requestPermission(); toast(r === 'granted' ? 'Notifications du navigateur activées.' : 'Notifications refusées par le navigateur.'); } catch { toast('Les notifications du navigateur ne sont pas disponibles ici. Les rappels restent visibles sur l’accueil.'); } },
-  loadPhotos: async () => { try { const as = window.claude?.use ? await window.claude.use('assets') : null; if (!as) throw 0; UI.photos = (await as.list()).assets.filter(a => a.contentType.startsWith('image/')); } catch { UI.photos = []; toast('La liste des photos n’est pas disponible ici.'); } render(); },
-  delPhoto: async b => { try { const as = await window.claude.use('assets'); await as.delete(b.dataset.id); S.pantry.forEach(p => { if (p.photo === b.dataset.id) p.photo = null; }); save('pantry'); UI.photos = UI.photos.filter(a => a.id !== b.dataset.id); render(); toast('Photo supprimée.'); } catch { toast('La photo n’a pas pu être supprimée.'); } },
+  loadPhotos: async () => { try { const as = await photoStore(); if (!as) throw 0; UI.photos = (await as.list()).assets.filter(a => a.contentType.startsWith('image/')); } catch { UI.photos = []; toast('La liste des photos n’est pas disponible ici.'); } render(); },
+  delPhoto: async b => { try { const as = await photoStore(); await as.delete(b.dataset.id); S.pantry.forEach(p => { if (p.photo === b.dataset.id) p.photo = null; }); save('pantry'); UI.photos = UI.photos.filter(a => a.id !== b.dataset.id); render(); toast('Photo supprimée.'); } catch { toast('La photo n’a pas pu être supprimée.'); } },
   clearSearches: () => { S.searches = []; save('searches'); render(); }, clearScans: () => { S.scans = []; save('scans'); render(); },
-  perms: async () => { try { const p = window.claude?.use ? await window.claude.use('permissions') : null; if (!p) throw 0; await p.manage(); } catch { toast('Ouvrez le menu Autorisations de la page pour gérer les accès.'); } },
+  perms: async () => { if (!IN_CLAUDE) return toast('Gérez l’appareil photo et les notifications dans les réglages de votre navigateur ou de votre téléphone.'); try { const p = window.claude?.use ? await window.claude.use('permissions') : null; if (!p) throw 0; await p.manage(); } catch { toast('Ouvrez le menu Autorisations de la page pour gérer les accès.'); } },
   qcCalc: () => { UI.qcN = Math.max(1, +$('#qcN').value || 1); UI.qcA = +$('#qcA').value || 1; render(); },
   shareProfile: () => { const p = S.prefs, sub = { servings: p.servings, level: p.level, diet: p.diet, allergies: p.allergies, cuisinesFav: p.cuisinesFav, likes: p.likes, dislikes: p.dislikes, banned: p.banned, equipment: p.equipment, goals: p.goals, maxTime: p.maxTime, maxDiff: p.maxDiff }; const code = 'TAMB1:' + btoa(unescape(encodeURIComponent(JSON.stringify(sub)))); copyText(code); },
   askPrefs: () => { UI.confirmPrefs = true; render(); }, cancelPrefs: () => { UI.confirmPrefs = false; render(); },

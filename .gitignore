@@ -1,0 +1,7 @@
+node_modules/
+public/
+desktop/app/
+desktop/dist/
+mobile/www/
+mobile/android/
+.vercel

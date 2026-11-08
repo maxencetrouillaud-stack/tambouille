@@ -85,7 +85,7 @@ function applyDocs(snap, src, initial) {
 }
 async function initCloud() {
   try {
-    if (!window.claude?.use) return setSync('local');
+    if (!window.claude?.use) return initSupabase();
     const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
     if (!db || !user) return setSync('local');
     CL.db = db; CL.user = user; CL.uid = await user.id(); if (!CL.uid) return setSync('local');
@@ -143,12 +143,12 @@ const AI_PROVIDERS = {
 const AI = {
   name: 'claude', _p: null,
   h() { if (!this._p) this._p = AI_PROVIDERS[this.name].connect(); return this._p; },
-  async ready() { const h = await this.h(); if (!h) toast('L’IA n’est pas disponible ici. Ouvrez Tambouille sur claude.ai en étant connecté.'); return !!h; },
+  async ready() { const h = await this.h(); if (!h) toast(IN_CLAUDE ? 'L’IA n’est pas disponible ici. Ouvrez Tambouille sur claude.ai en étant connecté.' : 'Connectez-vous à votre compte Tambouille pour utiliser l’IA.', IN_CLAUDE ? null : { act: 'goAccount', label: 'Se connecter' }); return !!h; },
   async json(input, o = {}) { return AI_PROVIDERS[this.name].json(await this.h(), input, { modelTier: 'default', ...o }); },
   async text(input, o = {}) { return AI_PROVIDERS[this.name].text(await this.h(), input, { modelTier: 'default', ...o }); },
   async images() { return AI_PROVIDERS[this.name].images(await this.h()); },
 };
-function aiErr(e) { const c = e?.code; toast(c === 'not_granted' ? 'Accès à l’IA refusé. Autorisez-le dans le menu Autorisations de la page.' : c === 'rate_limited' ? 'Trop de demandes à l’IA. Réessayez dans un instant.' : c === 'invalid_json' ? 'La réponse de l’IA était incomplète. Réessayez.' : 'L’IA n’a pas pu répondre. Vérifiez votre connexion et réessayez.'); }
+function aiErr(e) { const c = e?.code; toast(c === 'not_configured' ? 'L’IA du site n’est pas encore configurée (clé Anthropic manquante côté serveur).' : c === 'auth' ? 'Session expirée : reconnectez-vous.' : c === 'network' ? 'Serveur IA injoignable. Vérifiez votre connexion.' : c === 'not_granted' ? 'Accès à l’IA refusé. Autorisez-le dans le menu Autorisations de la page.' : c === 'rate_limited' ? 'Trop de demandes à l’IA. Réessayez dans un instant.' : c === 'invalid_json' ? 'La réponse de l’IA était incomplète. Réessayez.' : 'L’IA n’a pas pu répondre. Vérifiez votre connexion et réessayez.'); }
 async function compress(file, max = 1280) {
   try { const bmp = await createImageBitmap(file); const k = Math.min(1, max / Math.max(bmp.width, bmp.height)); const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height); return await new Promise(r => c.toBlob(b => r(b || file), 'image/jpeg', 0.82)); } catch { return file; }
 }
@@ -239,7 +239,7 @@ const VIEWS = {
   accueil() {
     const h = new Date().getHours(); const name = CL.me?.name ? ', ' + esc(CL.me.name.split(' ')[0]) : '';
     const soon = watchList().filter(x => x.e.s.safe).length, can = scoredList({}, 'full').length;
-    return `${UI.demo ? `<div class="banner"><div><b>Inventaire d’exemple.</b> Ces aliments ne sont pas les vôtres : scannez votre frigo ou videz-le.</div><div class="row"><button class="btn sm" data-act="keepDemo">Garder pour tester</button><button class="btn sm ghost" data-act="clearDemo">Vider</button></div></div>` : ''}
+    return `${guestBanner()}${UI.demo ? `<div class="banner"><div><b>Inventaire d’exemple.</b> Ces aliments ne sont pas les vôtres : scannez votre frigo ou videz-le.</div><div class="row"><button class="btn sm" data-act="keepDemo">Garder pour tester</button><button class="btn sm ghost" data-act="clearDemo">Vider</button></div></div>` : ''}
     <section class="hero"><p class="eyebrow">${h < 11 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir'}${name} · ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
       <h1>On cuisine quoi<br>avec ce qu’il y a&nbsp;?</h1>
       <div class="stats"><button data-act="go" data-r="inventaire"><b>${S.pantry.filter(p => p.qty > 0).length}</b><span>aliments en stock</span></button><button data-act="go" data-r="recettes" data-mode="full"><b>${can}</b><span>recettes 100 % dispo</span></button><button data-act="go" data-r="inventaire" data-inv="watch" class="${soon ? 'alert' : ''}"><b>${soon}</b><span>à consommer vite</span></button></div>
@@ -340,7 +340,7 @@ function invHeader() {
 }
 function stockRow(p) {
   const e = expInfo(p);
-  return `<li class="srow ${e.cls}"><button class="sinfo" data-act="editItem" data-id="${p.id}">${p.photo ? `<img src="/_blob/${esc(p.photo)}" alt="" loading="lazy">` : ''}<span><b>${esc(p.name)}${p.uncertain ? ' <i class="tag warn">à vérifier</i>' : ''}${p.state !== 'neuf' ? ` <i class="tag">${p.state === 'ouvert' ? 'ouvert' : 'entamé'}</i>` : ''}</b><small>${esc([p.brand, spaceName(p.loc)].filter(Boolean).join(' · '))}</small></span></button>
+  return `<li class="srow ${e.cls}"><button class="sinfo" data-act="editItem" data-id="${p.id}">${p.photo ? `<img src="${esc(photoSrc(p.photo))}" alt="" loading="lazy">` : ''}<span><b>${esc(p.name)}${p.uncertain ? ' <i class="tag warn">à vérifier</i>' : ''}${p.state !== 'neuf' ? ` <i class="tag">${p.state === 'ouvert' ? 'ouvert' : 'entamé'}</i>` : ''}</b><small>${esc([p.brand, spaceName(p.loc)].filter(Boolean).join(' · '))}</small></span></button>
     <span class="exp ${e.cls}">${e.lab}${e.lab ? `<i>${p.expType === 'est' ? '≈' : p.expType}</i>` : ''}</span>
     <div class="qty"><button class="icon sm" data-act="qty" data-id="${p.id}" data-d="-1" aria-label="Diminuer ${esc(p.name)}">${ic('minus')}</button><span>${esc(fmtQty(p.qty, p.unit)) || '0'}</span><button class="icon sm" data-act="qty" data-id="${p.id}" data-d="1" aria-label="Augmenter ${esc(p.name)}">${ic('plus')}</button></div></li>`;
 }
@@ -438,7 +438,7 @@ function recipeSheet() {
 }
 function recipeText(r, serv) { const k = serv / r.servings; return `${r.title}\n${r.desc ? r.desc + '\n' : ''}${serv} personnes · ${r.time} min\n\nIngrédients\n${r.ingr.map(i => `- ${fmtQty(i.q * k, i.u)} ${i.n}${i.opt ? ' (facultatif)' : ''}`).join('\n')}\n\nPréparation\n${r.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}${r.tip ? `\n\nAstuce : ${r.tip}` : ''}${r.storage ? `\nConservation : ${r.storage}` : ''}\n\nTambouille`; }
 async function copyText(t) { try { await navigator.clipboard.writeText(t); toast('Recette copiée : collez-la où vous voulez.'); } catch { openSheet(() => shead('Copier la recette') + `<textarea id="copyArea" rows="14" readonly>${esc(t)}</textarea><p class="muted-t">Sélectionnez le texte puis copiez-le.</p>`); setTimeout(() => $('#copyArea')?.select(), 60); } }
-async function download(filename, data) { try { const d = window.claude?.use ? await window.claude.use('downloads') : null; if (!d) return toast('Le téléchargement n’est pas disponible dans cette vue.'); await d.save({ filename, data }); } catch (e) { if (e?.code !== 'declined') toast('Le fichier n’a pas pu être enregistré.'); } }
+async function download(filename, data) { try { const d = window.claude?.use ? await window.claude.use('downloads') : null; if (!d) return downloadFallback(filename, data); await d.save({ filename, data }); } catch (e) { if (e?.code !== 'declined') toast('Le fichier n’a pas pu être enregistré.'); } }
 
 /* ===== Mode cuisine : étapes, minuteurs, voix, mains libres ===== */
 let wakeLock = null, rec = null;
@@ -520,7 +520,7 @@ function itemSheet(id) {
     <label class="fld"><span>Ouvert le</span><input name="opened" id="itOpened" type="date" value="${p.opened || ''}"></label>
     <fieldset class="fld wide"><legend>Valeurs nutritionnelles pour 100 g (facultatif)</legend><div class="nrow">${[['kcal', 'kcal'], ['p', 'Prot.'], ['c', 'Gluc.'], ['f', 'Lip.']].map(([k, l]) => `<label><span>${l}</span><input name="n_${k}" id="itN${k}" type="number" min="0" step="any" value="${p.nutri?.[k] ?? ''}"></label>`).join('')}</div></fieldset>
     <label class="fld wide"><span>Note</span><input name="note" id="itNote" value="${esc(p.note)}"></label>
-    <div class="fld wide photo">${UI.itemPhoto ? `<img src="/_blob/${esc(UI.itemPhoto)}" alt="Photo de l’aliment"><button type="button" class="btn ghost sm" data-act="rmItemPhoto">Retirer la photo</button>` : `<button type="button" class="btn ghost sm" data-act="itemPhoto">${ic('camera')}Ajouter une photo</button>`}</div>
+    <div class="fld wide photo">${UI.itemPhoto ? `<img src="${esc(photoSrc(UI.itemPhoto))}" alt="Photo de l’aliment"><button type="button" class="btn ghost sm" data-act="rmItemPhoto">Retirer la photo</button>` : `<button type="button" class="btn ghost sm" data-act="itemPhoto">${ic('camera')}Ajouter une photo</button>`}</div>
     <div class="row wrap wide"><button class="btn accent" type="submit">${ic('check')}${p.uncertain ? 'Confirmer et enregistrer' : 'Enregistrer'}</button>
     ${isNew ? '' : `${p.state === 'neuf' ? `<button class="btn ghost" type="button" data-act="openItem" data-id="${p.id}">Je l’ouvre</button>` : ''}${C.freeze && spaceKind(p.loc) !== 'congelo' && e.s.safe ? `<button class="btn ghost" type="button" data-act="freeze" data-id="${p.id}">${ic('snow')}Congeler</button>` : ''}<button class="btn ghost" type="button" data-act="waste" data-id="${p.id}">Jeté</button><button class="btn ghost danger" type="button" data-act="delItem" data-id="${p.id}">${ic('trash')}Supprimer</button>`}</div>
   </form>
@@ -849,7 +849,7 @@ document.addEventListener('change', async e => {
   if (t.dataset.spacek) { S.spaces.find(x => x.id === t.dataset.spacek).kind = t.value; save('spaces'); return; }
   if (t.dataset.rv != null) { const it = UI.review[+t.dataset.rv], k = t.dataset.k; it[k] = k === 'keep' ? t.checked : k === 'qty' ? parseFloat(t.value) || 0 : t.value; if (k === 'keep') refreshSheet(); return; }
   if (t.id === 'filePhoto') { const fs = t.files; if (fs?.length) scanImages([...fs], UI.fileKind); t.value = ''; return; }
-  if (t.id === 'fileItemPhoto') { const f = t.files?.[0]; t.value = ''; if (!f) return; try { const as = window.claude?.use ? await window.claude.use('assets') : null; if (!as) return toast('L’ajout de photos n’est pas disponible pour votre accès.'); const res = await as.upload(await compress(f, 640)); UI.itemPhoto = res.id; const fm = $('form[data-form=saveItem]'); if (fm) { fm.dataset.photo = res.id; fm.querySelector('.photo').innerHTML = `<img src="${esc(res.url)}" alt="Photo de l’aliment"><span class="muted-t">Enregistrez pour conserver la photo.</span>`; } } catch { toast('La photo n’a pas pu être envoyée.'); } return; }
+  if (t.id === 'fileItemPhoto') { const f = t.files?.[0]; t.value = ''; if (!f) return; try { const as = await photoStore(); if (!as) return toast(IN_CLAUDE ? 'L’ajout de photos n’est pas disponible pour votre accès.' : 'Connectez-vous à votre compte pour ajouter des photos.'); const res = await as.upload(await compress(f, 640)); UI.itemPhoto = res.id; const fm = $('form[data-form=saveItem]'); if (fm) { fm.dataset.photo = res.id; fm.querySelector('.photo').innerHTML = `<img src="${esc(res.url)}" alt="Photo de l’aliment"><span class="muted-t">Enregistrez pour conserver la photo.</span>`; } } catch { toast('La photo n’a pas pu être envoyée.'); } return; }
   if (t.id === 'fileBackup') { const f = t.files?.[0]; t.value = ''; if (!f) return; try { const j = JSON.parse(await f.text()); const d = j.data || j; if (!Array.isArray(d.pantry)) throw 0; KEYS.forEach(k => { if (d[k] != null) loadKey(k, d[k]); }); migrate(); save(...KEYS); applyTheme(); render(); toast('Sauvegarde restaurée.'); } catch { toast('Ce fichier n’est pas une sauvegarde Tambouille valide.'); } }
 });
 document.addEventListener('submit', async e => {
