@@ -6,7 +6,7 @@ on:
 permissions:
   contents: write
 env:
-  VERSION: '3.1.0'
+  VERSION: '3.2.0'
 jobs:
   web:
     runs-on: ubuntu-latest

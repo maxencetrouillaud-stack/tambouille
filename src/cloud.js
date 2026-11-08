@@ -1,9 +1,9 @@
 /* ===== Tambouille — comptes (Supabase Auth), synchronisation PostgreSQL, photos, proxy IA, installation ===== */
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const SITE_URL = 'https://tambouille-vercel.vercel.app';
 const SB_URL = 'https://ufqdplmibnczqnpmkgjq.supabase.co';
 const SB_KEY = 'sb_publishable_UVBJjovoii0HKOGJ5KmqaQ_-PDzRq5i'; // clé publique : la sécurité repose sur les règles RLS
-const DOWNLOADS = { apk: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/download/v3.1.0/Tambouille-3.1.0.apk', exe: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/download/v3.1.0/Tambouille-Setup-3.1.0.exe', page: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/tag/v3.1.0' };
+const DOWNLOADS = { apk: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/download/v3.2.0/Tambouille-3.2.0.apk', exe: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/download/v3.2.0/Tambouille-Setup-3.2.0.exe', page: 'https://github.com/maxencetrouillaud-stack/tambouille/releases/tag/v3.2.0' };
 const IN_CLAUDE = !!window.claude?.use;
 const IS_WEB = /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
 const API_BASE = IS_WEB && location.hostname.endsWith('vercel.app') ? '' : SITE_URL;

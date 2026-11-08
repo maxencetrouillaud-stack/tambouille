@@ -202,11 +202,28 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .favdot .ic{width:16px;height:16px;fill:currentColor}
 .stars-mini{position:absolute;top:8px;left:8px;background:var(--surface);color:var(--saffron);font-size:11px;padding:2px 7px;border-radius:99px;letter-spacing:1px}
 .art{position:relative;aspect-ratio:16/10;max-width:100%;overflow:hidden;background:radial-gradient(circle at 25% 15%,hsl(var(--h) 70% 82%),hsl(var(--h) 45% 52%) 75%)}
-.art.big{aspect-ratio:16/8}
+.art.big{aspect-ratio:16/9}
 .art .plate{position:absolute;left:50%;top:54%;width:62%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,#fbfaf6 58%,#e9e6dc 60%,#f6f4ee 72%);box-shadow:0 14px 30px -10px rgb(0 0 0/.35)}
 .art.big .plate{width:40%}
 .art i{position:absolute;left:var(--x);top:var(--y);width:var(--s);aspect-ratio:1.3;transform:translate(-50%,-50%) rotate(var(--rot));border-radius:56% 44% 60% 40%/50% 60% 40% 50%;background:radial-gradient(circle at 35% 30%,hsl(var(--hh) 75% 70%),hsl(var(--hh) 55% 42%));box-shadow:0 2px 3px rgb(0 0 0/.18)}
 .art.big i{width:calc(var(--s) * .65)}
+.art .d3img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .45s;pointer-events:none;user-select:none}
+.art.has3d .d3img{opacity:1}.art.has3d .plate,.art.has3d i,.rhead.has3d .art .plate,.rhead.has3d .art i,.rhead.has3d .art .d3img{display:none}
+.rhead>.close{z-index:5}.d3view{position:absolute;inset:0;z-index:1;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}.d3view.grab{cursor:grabbing}
+.d3view canvas{display:block;width:100%;height:100%}
+.d3view .d3bar{position:absolute;left:12px;bottom:10px;display:flex;gap:6px}
+.d3view .d3bar .icon{background:rgb(255 255 255/.82);color:#2a2622;backdrop-filter:blur(6px);box-shadow:0 2px 8px rgb(0 0 0/.15)}
+.d3view .d3hint{position:absolute;right:12px;bottom:12px;font-size:.72rem;padding:3px 9px;border-radius:99px;background:rgb(0 0 0/.38);color:#fff;pointer-events:none;animation:d3fade 4s 2.5s forwards}
+@keyframes d3fade{to{opacity:0}}
+.d3view.full{position:fixed;inset:0;z-index:95;touch-action:none;background:radial-gradient(circle at 30% 15%,hsl(var(--h,30) 60% 86%),hsl(var(--h,30) 40% 48%) 80%)}
+.d3view.full .d3hint{animation:none;opacity:1}
+.steam{position:absolute;left:50%;top:22%;width:30%;height:40%;transform:translateX(-50%);pointer-events:none;display:none}
+.d3view.hot .steam{display:block}
+.steam i{position:absolute;bottom:0;width:22%;height:70%;border-radius:50%;background:radial-gradient(ellipse at center,rgb(255 255 255/.55),transparent 65%);filter:blur(6px);opacity:0;animation:steam 3.6s ease-in infinite}
+.steam i:nth-child(1){left:18%}.steam i:nth-child(2){left:42%;animation-delay:1.2s}.steam i:nth-child(3){left:64%;animation-delay:2.4s}
+@keyframes steam{0%{transform:translateY(20%) scaleX(.7);opacity:0}30%{opacity:.75}100%{transform:translateY(-70%) scaleX(1.3) rotate(8deg);opacity:0}}
+:root.noanim .steam i,:root.noanim .d3view .d3hint{animation:none}
+@media (prefers-reduced-motion:reduce){.steam{display:none!important}}
 
 /* Vues */
 .vhead{margin:4px 0 14px}.vhead p{color:var(--muted);margin-top:4px}

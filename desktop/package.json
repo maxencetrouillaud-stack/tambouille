@@ -1,7 +1,7 @@
 {
   "name": "tambouille-desktop",
   "productName": "Tambouille",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Tambouille : recettes anti-gaspi à partir de votre frigo",
   "author": "Maxence Trouillaud",
   "main": "main.js",
