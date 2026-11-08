@@ -1,0 +1,2 @@
+-- Schéma Tambouille (appliqué sur le projet Supabase « tambouille »). Voir README.
+-- profiles, user_data (RLS par utilisateur, temps réel), bucket privé photos, trigger handle_new_user, delete_my_account.

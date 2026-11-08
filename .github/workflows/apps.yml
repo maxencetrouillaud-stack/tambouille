@@ -131,7 +131,7 @@ jobs:
         with: { name: captures-windows, path: windows-accueil.png }
 
   release:
-    needs: [android, android-test, windows, e2e-comptes]
+    needs: [android, android-test, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

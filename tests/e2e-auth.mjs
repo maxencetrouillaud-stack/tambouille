@@ -44,7 +44,7 @@ const { error: pErr } = await ub.storage.from('photos').upload(`${sa.user.id}/in
 check('Stockage : impossible d’écrire dans le dossier photos d’un autre', !!pErr);
 await d1.p.click('[data-act=signOut]'); await d1.p.waitForTimeout(1500);
 check('déconnexion : données retirées de l’appareil', await d1.p.evaluate(() => !SB.user && S.pantry.length === 0));
-const { error: dErr } = await ub.rpc('delete_my_account');
+const { error: dErr } = await ub.rpc('delete_my_account'); if (dErr) console.log('delete_my_account:', dErr.message);
 const { error: reLogin } = await createClient(SB_URL, SB_KEY).auth.signInWithPassword({ email: B.email, password: B.pw });
 check('suppression définitive du compte', !dErr && !!reLogin);
 await d2.p.screenshot({ path: 'shots/accueil-connecte.png', fullPage: false });
